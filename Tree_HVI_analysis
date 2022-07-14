@@ -1,0 +1,184 @@
+---
+title: "Forestry_Data"
+author: "Emily Lopez"
+date: '2022-06-07'
+output: html_document
+---
+
+# R Markdown
+```{r}
+setwd("/Users/betanyc_user/Desktop/Beta_NYC")
+getwd()
+```
+#Install libraries
+```{r}
+library(lubridate)
+library(tidyverse)
+library(ggplot2) # Data visualization
+library(ggmap)
+library(dplyr)
+library(cluster)# clustering algorithms
+library(lattice)
+
+```
+#Load CSV files for Heat Map and DPR requests
+```{r}
+forestry_data <- read.csv(file = "Forestry_Service_Requests.csv")
+heat_index_all <- read.csv("~/Downloads/heat_index_all.csv")
+```
+#Clean Forestry Data and Explore 
+```{r}
+clean_forestry_data = forestry_data %>% select(
+  OBJECTID,
+  SRCategory,
+  SRType,
+  SRStatus,
+  SRResolution,
+  BoroughCode,
+  Descriptor1,
+  BBL,
+  Latitude,
+  Longitude,
+  InitiatedDate,
+  ClosedDate,
+  CreatedDate,
+  ComplaintType,
+  Latitude,
+  Longitude,
+  BBL,
+  NTA)
+# if we are looking at specific dates for complaints then use this code: 
+## forestry_data_diff<- forestry_data %>% subset(mdy_hms(CreatedDate)>=mdy("1/1/2016") & mdy_hms(CreatedDate)<=mdy("12/31/2021")) %>% droplevels()
+```
+#Clean Heat Index data 
+```{r}
+clean_heat_index_data = heat_index_all %>% select(
+  NTAName,
+  BoroName,
+  count_of_H,
+  HVI_Rank,
+  the_geom)
+```
+#Clean Datasets 
+```{r} 
+#The date format is in chr --> needs to be in date format 
+clean_forestry_data$new_created_date = mdy_hms(forestry_data$CreatedDate)
+clean_forestry_data$new_closed_date = mdy_hms(forestry_data$ClosedDate)
+
+clean_heat_index_data = clean_heat_index_data %>% mutate(NTA = NTAName)
+clean_heat_index_data$NTAName = NULL 
+```
+#What is the time difference between closed and open date? --> create new variable 
+```{r}
+clean_forestry_data$difftime <- difftime(clean_forestry_data$new_closed_date, clean_forestry_data$new_created_date, units = "days")
+``` 
+#Create Subset Frames 
+```{r}
+forestry_nta_complaints <- forestry_data %>% subset(select=c(ComplaintType,NTA)) %>% 
+  group_by(NTA) %>% 
+  summarize(Complaints = length(ComplaintType)) %>% arrange(desc(Complaints))
+knitr::kable(forestry_types)
+
+forestry_BORO <- forestry_data %>% subset(select=c(ComplaintType,BoroughCode)) %>% 
+  group_by(BoroughCode) %>% 
+  summarize(Complaints = length(ComplaintType)) %>% arrange(desc(Complaints))
+knitr::kable(forestry_BORO)
+```
+
+#Arrange data by Complaint Types
+```{r}
+New_Trees <- clean_forestry_data[clean_forestry_data$ComplaintType=="New Tree Request",]
+Damaged_Trees <- clean_forestry_data[clean_forestry_data$ComplaintType== "Damaged Tree",]
+Wood_Pile <- clean_forestry_data[clean_forestry_data$ComplaintType== "Wood Pile Remaining",]
+Street_Condition <- clean_forestry_data[clean_forestry_data$ComplaintType== "Root/Sewer/Sidewalk Condition",]
+Dead_Trees <- clean_forestry_data[clean_forestry_data$ComplaintType== "Dead/Dying Tree",]
+Overgrown_Trees <- clean_forestry_data[clean_forestry_data$ComplaintType== "Overgrown Tree/Branches",]
+Illegal_Tree_Damage <- clean_forestry_data[clean_forestry_data$ComplaintType== "Illegal Tree Damage",]
+```
+#get count of SR in each NTA
+```{r}
+forestry_sr_by_nta = clean_forestry_data %>% group_by(NTA) %>% count() %>% mutate(SRCOUNT = n)
+```
+#merge datasets for HVI and street trees 
+```{r}
+hvi_street<-merge(clean_heat_index_data, forestry_sr_by_nta, by = 'NTA' , all=T) 
+``` 
+#Data Vizualization 
+```{r}
+ggplot(forestry_BORO, aes(x=BoroughCode, y=Complaints, fill=BoroughCode)) + 
+  xlab("Borough") +
+  geom_bar(stat="identity") + 
+  coord_flip() +
+  ggtitle("Complaints by Boro")
+
+ggplot(New_Trees, aes(x=BoroughCode, y=ComplaintType, fill=BoroughCode)) + 
+  xlab("Borough") +
+  geom_bar(stat="identity") + 
+  coord_flip() +
+  ggtitle("New Tree Requests by Boro") 
+
+hvi_street %>% 
+    mutate(hvi_factor = as.factor(HVI_Rank)) %>%
+    filter(!is.na(hvi_factor)) %>%
+    ggplot(aes(x = hvi_factor, y = SRCOUNT)) + 
+    geom_boxplot() + 
+    ggtitle("HVI vs. Service Requests in Neighborhoods") +
+  xlab("HVI Rank") + ylab("SRCOUNT")
+
+#NTA with low hvi ranks have higher sr counts (on average)
+```
+#Chi-square test 
+# both are higher than  p > 0.05 
+```{r} 
+hvi_street1 = hvi_street %>% 
+    mutate(hvi_factor = as.factor(HVI_Rank)) %>%
+    filter(!is.na(hvi_factor))
+chisq.test(hvi_street1$hvi_factor, hvi_street1$SRCOUNT, simulate.p.value = TRUE)
+``` 
+#Merge New Trees Dataset and HVI datset 
+```{r}
+new_trees_clean = New_Trees %>% 
+  group_by(NTA) %>% 
+  count() %>% mutate(SRCOUNT = n)
+
+### This data set is for Tableau analysis, I merged the datasets. 
+
+new_trees_hvi <-merge(clean_forestry_data, hvi_street1, by = 'NTA' , all=T) 
+New_Trees_HVI <- new_trees_hvi[new_trees_hvi$SRCategory=="Plant Tree",]
+New_Trees_HVI <- new_trees_hvi[new_trees_hvi$SRType== "Street Tree",]
+
+New_Trees_HVI1 = New_Trees_HVI %>% filter(!is.na(hvi_factor)) %>%
+    filter(SRCategory=="Plant Tree" & SRType== "Street Tree") %>%
+    select(NTA, 
+          SRStatus, 
+          SRResolution,
+          BoroughCode, 
+          new_created_date,
+          new_closed_date, 
+          difftime,
+          hvi_factor,
+          Latitude,
+          Longitude,
+          SRCOUNT) 
+ 
+New_Trees_HVI2 = New_Trees_HVI1 %>%
+  select(NTA, 
+          SRStatus, 
+          SRResolution,
+          BoroughCode, 
+          new_created_date,
+          new_closed_date, 
+          difftime,
+          hvi_factor,
+          Latitude,
+          Longitude,
+          SRCOUNT) 
+new_trees222 <- na.omit(New_Trees_HVI2)
+
+New_Trees_Tableau <- write.csv(New_Trees_HVI1, file = "New_Trees_HVI.csv")
+````
+# do not normalize by tree canopy % ---> do it by tree points 
+
+#average size of trees in NTA 
+#how many trees per NTA 
+#use population or area 
