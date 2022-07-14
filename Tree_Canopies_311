@@ -1,0 +1,107 @@
+setwd("/Users/betanyc_user/Desktop/Beta_NYC")
+getwd()
+library(lubridate)
+library(tidyverse)
+library(ggplot2) # Data visualization
+library(ggmap)
+library(dplyr)
+library(cluster)    # clustering algorithms
+
+forestry_data <- read.csv(file = "Forestry_Service_Requests.csv")
+
+###Cleaning data - removing variables 
+forestry_data$Location= NULL
+forestry_data$CallerState= NULL
+forestry_data$SanitationZone= NULL
+forestry_data$NotesToCustomer= NULL
+forestry_data$CrossStreet1= NULL
+forestry_data$CrossStreet2= NULL
+forestry_data$TaxClass= NULL
+forestry_data$Postcode= NULL
+forestry_data$CallerCity= NULL
+forestry_data$BuildingNumber= NULL
+forestry_data$Geometry= NULL
+forestry_data$ParkName= NULL
+forestry_data$ParkZone= NULL 
+forestry_data$ServiceRequestParentGlobalID= NULL
+forestry_data$GlobalID= NULL
+forestry_data$SRCallerType= NULL
+forestry_data$CallerZipCode= NULL
+forestry_data$BBL= NULL
+forestry_data$BIN= NULL
+forestry_data$X.1= NULL
+
+forestry_data <- na.omit(forestry_data)
+str(forestry_data) 
+
+## the date format is in chr --> needs to be in date format 
+forestry_data$new_created_date = mdy_hms(forestry_data$CreatedDate)
+forestry_data$new_closed_date = mdy_hms(forestry_data$ClosedDate)
+
+# if we are looking at specific dates for complaints then use this code: 
+## forestry_data_diff<- forestry_data %>% subset(mdy_hms(CreatedDate)>=mdy("1/1/2016") & mdy_hms(CreatedDate)<=mdy("12/31/2021")) %>% droplevels()
+
+#create subset dataframe with type and NTA columns, then summarize
+forestry_types <- forestry_data %>% subset(select=c(ComplaintType,NTA)) %>% 
+  group_by(NTA) %>% 
+  summarize(Complaints = length(ComplaintType)) %>% arrange(desc(Complaints))
+knitr::kable(forestry_types)
+
+###subset dataframe with borough and complaints 
+forestry_BORO <- forestry_data %>% subset(select=c(ComplaintType,BoroughCode)) %>% 
+  group_by(BoroughCode) %>% 
+  summarize(Complaints = length(ComplaintType)) %>% arrange(desc(Complaints))
+knitr::kable(forestry_BORO)
+
+####calculate the time difference between created and closed dates 
+forestry_data$difftime <- difftime(forestry_data$new_closed_date, forestry_data$new_created_date, units = "days")
+
+#Complaint Types 
+New_Trees <- forestry_data[forestry_data$ComplaintType=="New Tree Request",]
+Damaged_Trees <- forestry_data[forestry_data$ComplaintType== "Damaged Tree",]
+Wood_Pile <- forestry_data[forestry_data$ComplaintType== "Wood Pile Remaining",]
+Street_Condition <- forestry_data[forestry_data$ComplaintType== "Root/Sewer/Sidewalk Condition",]
+Dead_Trees <- forestry_data[forestry_data$ComplaintType== "Dead/Dying Tree",]
+Overgrown_Trees <- forestry_data[forestry_data$ComplaintType== "Overgrown Tree/Branches",]
+Illegal_Tree_Damage <- forestry_data[forestry_data$ComplaintType== "Illegal Tree Damage",]
+
+ggplot(forestry_BORO, aes(x=BoroughCode, y=Complaints, fill=BoroughCode)) + 
+  xlab("Borough") +
+  geom_bar(stat="identity") + 
+  coord_flip() +
+  ggtitle("Complaints by Boro")
+
+ggplot(forestry_data, aes(x = difftime)) + 
+  geom_histogram() 
+
+## create an area map for which neighboorhoods need trees - 
+# What areas have the most requests for tree plotting?
+ggplot(New_Trees, aes(x=BoroughCode, y=ComplaintType, fill=BoroughCode)) + 
+  xlab("Borough") +
+  geom_bar(stat="identity") + 
+  coord_flip() +
+  ggtitle("New Tree Requests by Boro") 
+
+#box n whisker diagram - find the distribution  
+
+#draw plot 
+ggplot(New_Trees,aes(x=BoroughCode,y=ComplaintType)) +
+  geom_boxplot() + 
+  facet_wrap(~BoroughCode,scales="free") +
+  theme(axis.text.x = element_text(angle=90, hjust=1))
+
+#which area take the longest to close out their requests? 
+ggplot(New_Trees, aes(x=BoroughCode, y=difftime, fill=BoroughCode)) + 
+  xlab("Borough") +
+  geom_bar(stat="identity") + 
+  coord_flip() +
+  ggtitle("Complaints by Boro")
+
+## Use K-means clustering to show which area of the city have the most request for new trees 
+head(New_Trees)
+
+## Use K-means clustering to check which areas of the cities have the most damaged trees/dead trees 
+
+
+write.csv(fores,"/Users/betanyc_user/Downloads/Forestry_Service_Requests_cleaned.csv")
+
