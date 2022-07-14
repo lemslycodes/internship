@@ -1,3 +1,5 @@
+(This methods uses python to open json file and transfer into sql)
+
 Import pandas as pd 
 Import json 
 — r = read in python 
@@ -22,3 +24,13 @@ df.to_csv(‘/gamedata.csv, index = False)
 Go to public -> tables __. Import data 
 Table mapping —> target types —> change into correct forms
  	for campfire choices and any with text characters —> change into json type 
+_________________________________________________________________________________________________________________________
+(Method to open data in R) 
+install.packages("rjson")
+library("rjson")
+library("jsonlite")
+
+setwd('/Users/betanyc_user/Downloads')
+getwd()
+
+df = read_json("gamedata.json")
