@@ -1,0 +1,24 @@
+Import pandas as pd 
+Import json 
+— r = read in python 
+With open (/gamedata.json’, ‘r’ ) as file: 
+Data = json.load(file) 
+
+Df = pd.read_json(sgamedata.json’)
+df.head() 
+
+newData = []  
+For row in data: 
+newData.append(row[‘event’]) - removes event label 
+
+df= pd.dataframe(new data) 
+dr.sample(5) - a sample of data 
+
+- Difference between methods and functions. 
+df.to_csv(‘/gamedata.csv, index = False) 
+
+
+—> transfer to db beaver 
+Go to public -> tables __. Import data 
+Table mapping —> target types —> change into correct forms
+ 	for campfire choices and any with text characters —> change into json type 
