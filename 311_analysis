@@ -1,0 +1,61 @@
+with
+  sr_timestamp as (
+    select
+      CONCAT("Descriptor","Agency Name") as unqiue_group,
+      *,
+      to_timestamp("Closed Date", 'MM/DD/YYYY HH12:MI:SS AM') as closed_date,
+      to_timestamp("Created Date", 'MM/DD/YYYY HH12:MI:SS AM') as created_date
+    from
+      sr_since_2018
+    where
+      "Status" = 'Closed'
+      and "Status" is not NULL 
+        AND "Agency" = 'NYPD'
+        and "Complaint Type" = 'Illegal fireworks'
+  ),
+  duration_table as (
+    select
+      unqiue_group,
+      "Agency Name",
+      "Descriptor",
+      "Unique Key",
+      (closed_date - created_date) as dur
+    from
+      sr_timestamp
+  ),
+  duration_under_30 as (
+    select
+      unqiue_group,
+      "Agency Name",
+      "Descriptor",
+      count("Unique Key") as count_under_30_mins
+    from
+      duration_table
+    where
+      dur < INTERVAL '30 minutes'
+    group by
+      "Descriptor",
+      "Agency Name",
+    unqiue_group
+  ),
+  all_by_agency as (
+    select
+    unqiue_group,
+      "Descriptor",
+      "Agency Name",
+      Count("Unique Key") as total_cases
+    from
+      sr_timestamp
+    group by
+      "Descriptor",
+      "Agency Name",
+    unqiue_group
+    
+  ), unique_group_table as ( 
+select
+  *,
+  ROUND((count_under_30_mins ::numeric / total_cases), 3) * 100 as percent_under_30
+from
+  all_by_agency
+  left join duration_under_30 USING ("unqiue_group")
+  
