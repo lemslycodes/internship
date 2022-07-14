@@ -99,9 +99,31 @@ ggplot(New_Trees, aes(x=BoroughCode, y=difftime, fill=BoroughCode)) +
 
 ## Use K-means clustering to show which area of the city have the most request for new trees 
 head(New_Trees)
-
-## Use K-means clustering to check which areas of the cities have the most damaged trees/dead trees 
-
-
 write.csv(fores,"/Users/betanyc_user/Downloads/Forestry_Service_Requests_cleaned.csv")
+
+__________________________________________________________________________________________________________
+- seperate script 
+
+load("~/Downloads/heat_index_all.csv")
+library(tidyverse)
+
+##Clean data in heat index datset 
+heat_index_all$NTACode = NULL
+heat_index_all$CountyFIPS = NULL 
+heat_index_all$the_geom = NULL
+heat_index_all$Shape_Area = NULL
+heat_index_all$Shape_Leng = NULL 
+heat_index_all$BoroCode= NULL 
+
+clean_heat_index <- na.omit(heat_index_all) 
+
+##Rename column 
+clean_heat_index = clean_heat_index %>% mutate(NTA = NTAName)
+
+##old school way to colnames(clean_heat_index)[colnames(clean_heat_index)=="NTAName"] <- "NTA"
+
+#remove previous column 
+
+#merge datasets for HVI and street trees  
+master_frame<-merge(New_Trees,Clean_heat_index,by = 'NTA' , all=T) 
 
